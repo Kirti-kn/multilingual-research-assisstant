@@ -1,0 +1,15 @@
+streamlit
+fastapi
+uvicorn
+PyMuPDF
+langdetect
+transformers
+sentence-transformers
+faiss-cpu
+requests
+python-multipart
+hf_xet
+python-dotenv
+google-cloud-vision
+supabase
+streamlit
