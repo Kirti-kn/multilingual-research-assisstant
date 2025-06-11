@@ -1,10 +1,12 @@
 from fastapi import APIRouter, UploadFile, File, Form
+from fastapi.responses import StreamingResponse
 from backend.summarizer import summarize_section
 from backend.lang_utils import detect_language, translate_text
 from backend.qa_utils import build_vector_store, query_top_k, chunk_text
 from backend.llm_utils import generate_answer
 from backend.pdf_utils import extract_text_from_pdf_stream
 import fitz
+import asyncio
 
 router = APIRouter()
 pdf_language = "en"
@@ -73,33 +75,36 @@ async def query(question: str):
     results = query_top_k(question)
     return {"matches":results}
 
-@router.post("/ask/")
-async def ask(question: str = Form(...)):
-    updates = []
+@router.post("/ask-stream/")
+async def ask_stream(question: str = Form(...)):
+    async def event_stream():
+        yield "User language detected\n"
+        user_lang = detect_language(question)
+        await asyncio.sleep(0.5)
 
-    detected_lang = detect_language(question)
-    updates.append(f"User language detected: {detected_lang}")
+        yield "Question translated to PDF language\n"
+        translated_question = translate_text(question, src_lang=user_lang, tgt_lang=pdf_language)
+        await asyncio.sleep(0.5)
 
-    translated_question = translate_text(question, src_lang=detected_lang, tgt_lang=pdf_language)
-    updates.append("Question translated to PDF language")
+        yield "Top chunks retrieved\n"
+        top_chunks = query_top_k(translated_question)
+        await asyncio.sleep(0.5)
 
-    top_chunks = query_top_k(translated_question)
-    updates.append("Top chunks retrieved")
+        yield "Chunks joined for context\n"
+        context = "\n".join(top_chunks)
+        await asyncio.sleep(0.5)
 
-    context = "\n".join(top_chunks)
-    updates.append("Chunks joined for context")
+        yield "Generating answer...\n"
+        answer_in_pdf_lang = generate_answer(context, translated_question)
+        await asyncio.sleep(0.5)
 
-    answer_in_pdf_lang = generate_answer(context, translated_question)
-    updates.append("Answer generated in PDF language")
+        yield "Answer generated in PDF language\n"
+        await asyncio.sleep(0.3)
 
-    final_ans = translate_text(answer_in_pdf_lang, src_lang=pdf_language, tgt_lang=detected_lang)
-    updates.append("Final answer translated")
+        yield "Translating answer to user's language\n"
+        final_ans = translate_text(answer_in_pdf_lang, src_lang=pdf_language, tgt_lang=user_lang)
+        await asyncio.sleep(0.5)
 
-    return {
-        "updates": updates,
-        "detected_language": detected_lang,
-        "pdf_language": pdf_language,
-        "translated_question": translated_question,
-        "answer_in_pdf_lang": answer_in_pdf_lang,
-        "final_answer": final_ans
-    }
+        yield f"DONE::{final_ans}\n"
+
+    return StreamingResponse(event_stream(), media_type="text/plain")

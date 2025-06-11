@@ -1,12 +1,12 @@
 import streamlit as st
 import requests
+import os
 
-BACKEND_URL = "http://localhost:8000"  # Change if hosted elsewhere
+BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 
-st.set_page_config(page_title="Multilingual Research Assistant", layout="wide")
-st.title("📚 Multilingual Research Assistant")
+st.set_page_config(page_title="PaperBridge", layout="wide")
+st.title("📚 PaperBridge — Your Multilingual Research Assistant")
 
-# Upload PDF and build index
 st.header("Step 1: Upload PDF and Build Index")
 uploaded_file = st.file_uploader("Upload a PDF", type="pdf")
 build_status = st.empty()
@@ -23,20 +23,25 @@ if uploaded_file:
         else:
             build_status.error("❌ Failed to build index.")
 
-# Ask questions
 st.header("Step 2: Ask a Question")
 question = st.text_input("Enter your question")
 
 if st.button("Ask") and question:
     with st.spinner("Processing your question..."):
-        res = requests.post(f"{BACKEND_URL}/ask/", data={"question": question})
-        if res.ok:
-            data = res.json()
-            st.subheader("📝 Answer")
-            st.write(data['final_answer'])
+        response = requests.post(
+            f"{BACKEND_URL}/ask-stream/",
+            data={"question": question},
+            stream=True
+        )
+        status_box = st.empty()
+        answer_box = st.empty()
 
-            st.subheader("🛠️ Translation and Processing Steps")
-            for step in data["updates"]:
-                st.markdown(f"- {step}")
-        else:
-            st.error("❌ Failed to generate answer.")
+        updates = ""
+        for line in response.iter_lines(decode_unicode=True):
+            if line:
+                if line.startswith("DONE::"):
+                    answer_box.success(line.replace("DONE::", ""))
+                    break
+                else:
+                    updates += f"- {line}\n"
+                    status_box.markdown(updates)
