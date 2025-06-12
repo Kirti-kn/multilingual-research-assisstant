@@ -26,6 +26,6 @@ PaperBridge helps researchers, students, and curious minds break language barrie
 - **Q&A**: LLMs via OpenRouter or Ollama
 
 **_This project is still under development — many more features are coming soon._**  
-If you have suggestions or run into issues, please [open an issue](https://github.com/multilingual-research-assisstant/issues) and tag me directly. Let’s build this together!
+If you have suggestions or run into issues, please [open an issue](https://github.com/Kirti-kn/multilingual-research-assisstant/issues) and tag me directly. Let’s build this together!
 
 
